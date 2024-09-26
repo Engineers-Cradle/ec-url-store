@@ -1,0 +1,1 @@
+SELECT $table_fields FROM public.url_store_data WHERE $p_name = $1;
