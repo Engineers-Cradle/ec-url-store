@@ -5,7 +5,7 @@ use chrono::prelude::*;
 use hyperflake_rs::snowflake;
 
 use crate::libs::http::AppState;
-use crate::libs::redis::{get_value, set_value};
+use crate::libs::redis::{get_value, set_value, set_value_with_cache};
 use crate::utils::errors::AppError;
 use crate::repository;
 use seed_gen::generate_seed;
@@ -22,20 +22,60 @@ pub struct URLSlug {
 #[get("/{uid}")]
 pub async fn open_url_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
-    let p_name = "slug".to_string();
-    let urls = repository::db::get_url_info(&client, p_name, info.uid.clone()).await?;
+    let p_name: String = "slug".to_string();
+
+    // Check if slug exists in cache
+    let url_cache: String = get_value(&mut data.redis_client.get_multiplexed_async_connection().await.unwrap(), &info.uid).await;
+
+    if url_cache != "" {
+        // url_cache = 3275873752344166400:https://google.com
+        let url_parts: Vec<&str> = url_cache.split(":").collect();
+        let url_id: i64 = url_parts[0].parse::<i64>().unwrap();
+        let url_value: String = url_parts[1..].join(":");
+
+        let mut snowflake: snowflake::SnowflakeId = snowflake::SnowflakeId::new();
+
+        // TODO: Get country from IP
+        let url_analytics_info: repository::models::URLStoreAnalytics = repository::models::URLStoreAnalytics {
+            id: snowflake.generate().parse::<i64>().unwrap(),
+            url_id: url_id,
+            user_agent: extract_header_value(&req, &"user-agent".to_string()).unwrap_or("").to_string(),
+            referer: extract_header_value(&req, &"referrer".to_string()).unwrap_or("").to_string(),
+            ip_address: req.connection_info().peer_addr().unwrap_or("").to_string(),
+            country: "".to_string(),
+            created_at: Utc::now(),
+        };
+
+        let _ = repository::db::add_to_url_analytics(&client, url_analytics_info).await?;
+
+        // 2 days
+        let exp: u64 = 60 * 60 * 24 * 2;
+
+        let _ = set_value_with_cache(
+            &mut data.redis_client.get_multiplexed_async_connection().await.unwrap(),
+            &p_name,
+            &url_cache,
+            exp
+        ).await;
+
+        return Ok(HttpResponse::PermanentRedirect()
+            .append_header(("Location", url_value))
+            .finish());
+    }
+
+    let urls: Vec<repository::models::URLStore> = repository::db::get_url_info(&client, p_name, info.uid.clone()).await?;
 
     if urls.len() == 0 {
         return Ok(HttpResponse::NotFound().finish());
     }
 
-    let url = &urls[0];
+    let url: &repository::models::URLStore = &urls[0];
 
     // Add to analytics
-    let mut snowflake = snowflake::SnowflakeId::new();
+    let mut snowflake: snowflake::SnowflakeId = snowflake::SnowflakeId::new();
 
     // TODO: Get country from IP
-    let url_analytics_info = repository::models::URLStoreAnalytics {
+    let url_analytics_info: repository::models::URLStoreAnalytics = repository::models::URLStoreAnalytics {
         id: snowflake.generate().parse::<i64>().unwrap(),
         url_id: url.id,
         user_agent: extract_header_value(&req, &"user-agent".to_string()).unwrap_or("").to_string(),
@@ -55,14 +95,14 @@ pub async fn open_url_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data
 #[get("/{uid}/info")]
 pub async fn url_info_from_slug(info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
-    let p_name = "slug".to_string();
-    let urls = repository::db::get_url_info(&client, p_name, info.uid.clone()).await?;
+    let p_name: String = "slug".to_string();
+    let urls: Vec<repository::models::URLStore> = repository::db::get_url_info(&client, p_name, info.uid.clone()).await?;
 
     if urls.len() == 0 {
         return Ok(HttpResponse::NotFound().finish());
     }
 
-    let url = &urls[0];
+    let url: &repository::models::URLStore = &urls[0];
 
     Ok(HttpResponse::Ok().json(url))
 }
@@ -70,16 +110,16 @@ pub async fn url_info_from_slug(info: web::Path<URLSlug>, data: web::Data<AppSta
 #[get("/{uid}/analytics")]
 pub async fn url_analytics_from_slug(info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
-    let p_name = "slug".to_string();
-    let urls = repository::db::get_url_info(&client, p_name,info.uid.clone()).await?;
+    let p_name: String = "slug".to_string();
+    let urls: Vec<repository::models::URLStore> = repository::db::get_url_info(&client, p_name,info.uid.clone()).await?;
 
     if urls.len() == 0 {
         return Ok(HttpResponse::NotFound().finish());
     }
 
-    let url = &urls[0];
+    let url: &repository::models::URLStore = &urls[0];
 
-    let url_analytics = repository::db::get_url_analytics_info(&client, url.id).await?;
+    let url_analytics: Vec<repository::models::URLStore> = repository::db::get_url_analytics_info(&client, url.id).await?;
 
     Ok(HttpResponse::Ok().json(url_analytics))
 }
@@ -96,14 +136,14 @@ pub async fn generate_slug(
     redis_multiplex_connection: &mut redis::aio::MultiplexedConnection,
 ) -> String {
     Box::pin(async move {
-        let url_counter = get_value(redis_multiplex_connection, "url_store_counter").await;
-        let url_counter = url_counter.parse::<u32>().unwrap() + 1;
+        let url_counter: String = get_value(redis_multiplex_connection, "url_store_counter").await;
+        let url_counter: u32 = url_counter.parse::<u32>().unwrap() + 1;
 
         let _ = set_value(redis_multiplex_connection, "url_store_counter", &url_counter.to_string()).await;
 
-        let slug = generate_seed(url_counter);
+        let slug: String = generate_seed(url_counter);
 
-        let slug_exists = repository::db::check_slug_exists(
+        let slug_exists: bool = repository::db::check_slug_exists(
             client,
             slug.clone()
         ).await.unwrap();
@@ -122,26 +162,39 @@ pub async fn add_url_to_store(
     data: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let raw_url_info: URLData = url_data.into_inner();
-    let mut snowflake = snowflake::SnowflakeId::new();
+    let mut snowflake: snowflake::SnowflakeId = snowflake::SnowflakeId::new();
 
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
 
     let mut redis_multiplex_connection: redis::aio::MultiplexedConnection = data.redis_client.get_multiplexed_async_connection().await.unwrap();
 
-    let slug = generate_slug(&client, &mut redis_multiplex_connection).await;
+    let slug: String = generate_slug(&client, &mut redis_multiplex_connection).await;
 
-    let url_info = repository::models::URLStore {
-        id: snowflake.generate().parse::<i64>().unwrap(),
-        url: raw_url_info.url,
-        slug: slug,
+    let id: i64 = snowflake.generate().parse::<i64>().unwrap();
+
+    let url_info: repository::models::URLStore = repository::models::URLStore {
+        id: id.clone(),
+        url: raw_url_info.url.clone(),
+        slug: slug.clone(),
         user_id: Some(raw_url_info.user_id.unwrap_or(0)),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
 
-    let new_user = repository::db::add_url_to_store(&client, url_info).await?;
+    let new_url: repository::models::URLStore = repository::db::add_url_to_store(&client, url_info).await?;
 
-    Ok(HttpResponse::Ok().json(new_user))
+    // 2 days
+    let exp: u64 = 60 * 60 * 24 * 2;
+    let kv: String = format!("{}:{}", id, raw_url_info.url.clone());
+
+    let _ = set_value_with_cache(
+        &mut redis_multiplex_connection,
+        &slug,
+        &kv,
+        exp
+    ).await;
+
+    Ok(HttpResponse::Ok().json(new_url))
 }
 
 pub fn init_url_routes(config: &mut web::ServiceConfig) {

@@ -17,7 +17,7 @@ pub struct AppState {
 #[actix_web::main]
 pub async fn start_web_server(
 ) -> std::io::Result<()> {
-    let env_config = crate::env_config();
+    let env_config: crate::utils::config::AppConfig = crate::env_config();
 
     let redis_client: redis::Client = crate::libs::redis::connection_to_redis(
         &env_config.redis_url
@@ -25,13 +25,13 @@ pub async fn start_web_server(
 
     let pool = env_config.pg.create_pool(None, NoTls).unwrap();
 
-    let app_state = AppState {
+    let app_state: AppState = AppState {
         redis_client: redis_client.clone(),
         pool: pool.clone(),
     };
 
     let mut redis_multiplex_connection: redis::aio::MultiplexedConnection = redis_client.get_multiplexed_async_connection().await.unwrap();
-    let url_counter = get_value(&mut redis_multiplex_connection, "url_store_counter").await;
+    let url_counter: String = get_value(&mut redis_multiplex_connection, "url_store_counter").await;
 
     match url_counter.parse::<i32>() {
         Ok(_) => (),
@@ -44,7 +44,7 @@ pub async fn start_web_server(
         env_config.log_level
     ));
 
-    let mut listenfd = ListenFd::from_env();
+    let mut listenfd: ListenFd = ListenFd::from_env();
 
     let mut server = HttpServer::new(
         move || App::new()
@@ -57,8 +57,8 @@ pub async fn start_web_server(
     server = match listenfd.take_tcp_listener(0)? {
         Some(listener) => server.listen(listener)?,
         None => {
-            let host = "0.0.0.0";
-            let port = env_config.web_server_port;
+            let host: &str = "0.0.0.0";
+            let port: u16 = env_config.web_server_port;
             
             println!("Web Server started at http://{}:{}", host, port);
 

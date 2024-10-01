@@ -24,3 +24,12 @@ pub async fn set_value(connection: &mut redis::aio::MultiplexedConnection, key: 
         Err(_) => "".to_string(),
     }
 }
+
+pub async fn set_value_with_cache(connection: &mut redis::aio::MultiplexedConnection, key: &str, value: &str, exp: u64) -> String {
+    let value = connection.set_ex(key, value, exp).await;
+   
+    match value {
+        Ok(value) => value,
+        Err(_) => "".to_string(),
+    }
+}
