@@ -3,12 +3,13 @@ use actix_web::{get, post, web, Error, HttpRequest, HttpResponse};
 use serde::Deserialize;
 use chrono::prelude::*;
 use hyperflake_rs::snowflake;
+use seed_gen::generate_seed;
 
+use crate::utils::grpc_client;
 use crate::libs::http::AppState;
 use crate::libs::redis::{get_value, set_value, set_value_with_cache};
 use crate::utils::errors::AppError;
-use crate::repository;
-use seed_gen::generate_seed;
+use crate::{libs, repository};
 
 fn extract_header_value<'a>(req: &'a HttpRequest, key: &String) -> Option<&'a str> {
     req.headers().get(key)?.to_str().ok()
@@ -23,6 +24,9 @@ pub struct URLSlug {
 pub async fn open_url_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
     let p_name: String = "slug".to_string();
+    let read_ip_country = grpc_client::read_ip_grpc(req.connection_info().peer_addr().unwrap_or("").to_string()).await;
+
+    println!("{:?}", read_ip_country);
 
     // Check if slug exists in cache
     let url_cache: String = get_value(&mut data.redis_client.get_multiplexed_async_connection().await.unwrap(), &info.uid).await;
@@ -35,14 +39,13 @@ pub async fn open_url_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data
 
         let mut snowflake: snowflake::SnowflakeId = snowflake::SnowflakeId::new();
 
-        // TODO: Get country from IP
         let url_analytics_info: repository::models::URLStoreAnalytics = repository::models::URLStoreAnalytics {
             id: snowflake.generate().parse::<i64>().unwrap(),
             url_id: url_id,
             user_agent: extract_header_value(&req, &"user-agent".to_string()).unwrap_or("").to_string(),
             referer: extract_header_value(&req, &"referrer".to_string()).unwrap_or("").to_string(),
             ip_address: req.connection_info().peer_addr().unwrap_or("").to_string(),
-            country: "".to_string(),
+            country: read_ip_country.unwrap().country,
             created_at: Utc::now(),
         };
 
@@ -74,14 +77,13 @@ pub async fn open_url_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data
     // Add to analytics
     let mut snowflake: snowflake::SnowflakeId = snowflake::SnowflakeId::new();
 
-    // TODO: Get country from IP
     let url_analytics_info: repository::models::URLStoreAnalytics = repository::models::URLStoreAnalytics {
         id: snowflake.generate().parse::<i64>().unwrap(),
         url_id: url.id,
         user_agent: extract_header_value(&req, &"user-agent".to_string()).unwrap_or("").to_string(),
         referer: extract_header_value(&req, &"referrer".to_string()).unwrap_or("").to_string(),
         ip_address: req.connection_info().peer_addr().unwrap_or("").to_string(),
-        country: "".to_string(),
+        country: read_ip_country.unwrap().country,
         created_at: Utc::now(),
     };
 
@@ -93,7 +95,19 @@ pub async fn open_url_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data
 }
 
 #[get("/{uid}/info")]
-pub async fn url_info_from_slug(info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
+pub async fn url_info_from_slug(req: HttpRequest, info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
+    let access_token: Option<&str> = libs::jwt::get_auth_token(&req);
+
+    if access_token.is_none() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let is_verified = libs::jwt::verify_jwt(access_token.unwrap()).await;
+
+    if !is_verified {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
     let p_name: String = "slug".to_string();
     let urls: Vec<repository::models::URLStore> = repository::db::get_url_info(&client, p_name, info.uid.clone()).await?;
@@ -108,7 +122,19 @@ pub async fn url_info_from_slug(info: web::Path<URLSlug>, data: web::Data<AppSta
 }
 
 #[get("/{uid}/analytics")]
-pub async fn url_analytics_from_slug(info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
+pub async fn url_analytics_from_slug(req:HttpRequest, info: web::Path<URLSlug>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
+    let access_token: Option<&str> = libs::jwt::get_auth_token(&req);
+
+    if access_token.is_none() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let is_verified = libs::jwt::verify_jwt(access_token.unwrap()).await;
+
+    if !is_verified {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let client: Client = data.pool.get().await.map_err(AppError::PoolError)?;
     let p_name: String = "slug".to_string();
     let urls: Vec<repository::models::URLStore> = repository::db::get_url_info(&client, p_name,info.uid.clone()).await?;
@@ -158,9 +184,22 @@ pub async fn generate_slug(
 
 #[post("/")]
 pub async fn add_url_to_store(
+    req: HttpRequest,
     url_data: web::Json<URLData>,
     data: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
+    let access_token: Option<&str> = libs::jwt::get_auth_token(&req);
+
+    if access_token.is_none() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let is_verified = libs::jwt::verify_jwt(access_token.unwrap()).await;
+
+    if !is_verified {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let raw_url_info: URLData = url_data.into_inner();
     let mut snowflake: snowflake::SnowflakeId = snowflake::SnowflakeId::new();
 

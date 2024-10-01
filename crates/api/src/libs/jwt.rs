@@ -1,4 +1,5 @@
 use jwtk;
+use actix_web::HttpRequest;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -21,4 +22,8 @@ pub async fn verify_jwt(token: &str) -> bool {
         Ok(_) => true,
         Err(_) => false,
     }
+}
+
+pub fn get_auth_token<'a>(req: &'a HttpRequest) -> Option<&'a str> {
+    req.headers().get("authorization")?.to_str().ok()
 }

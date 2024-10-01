@@ -27,3 +27,11 @@ jwtk = "0.3.0"
 reqwest = { version = "0.12", features = ["json"] }
 seed-gen = { path = "../seed-gen" }
 arrow = "53.0.0"
+grpc_proto = { path = "../grpc_proto" }
+tonic = "0.12.3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+debug = false
+panic = "abort"

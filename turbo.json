@@ -1,0 +1,12 @@
+{
+    "$schema": "https://turbo.build/schema.json",
+    "tasks": {
+        "build": {},
+        "build:release": {},
+        "dev": {
+            "persistent": true,
+            "cache": false
+        },
+        "start": {}
+    }
+}
