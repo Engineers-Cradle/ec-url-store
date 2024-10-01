@@ -1,5 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/api", "crates/geo-ip", "crates/seed-gen"
+    "crates/api", "crates/geo-ip", "crates/grpc_proto", "crates/seed-gen"
 ]
+
+[profile.release]
+lto = true
+codegen-units = 1
+debug = false
+panic = "abort"

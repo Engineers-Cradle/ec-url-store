@@ -1,12 +1,8 @@
 use tonic::{Request, Response, Status};
-
 use std::net::IpAddr;
-
 use maxminddb::geoip2;
 
-use gen::grpc_geoip;
-
-use crate::gen;
+use grpc_proto::gen::grpc_geoip;
 
 #[derive(Default)]
 pub struct GrpcService {}
@@ -17,12 +13,13 @@ impl grpc_geoip::geo_ip_server::GeoIp for GrpcService {
         &self,
         request: Request<grpc_geoip::GeoIpRequest>,
     ) -> Result<Response<grpc_geoip::GeoIpResponse>, Status> {
+        let ip: IpAddr = request.get_ref().ip.parse().unwrap();
+
         let reader: maxminddb::Reader<Vec<u8>> = maxminddb::Reader::open_readfile(
             "db/GeoLite2-City.mmdb",
         )
         .unwrap();
 
-        let ip: IpAddr = request.get_ref().ip.parse().unwrap();
 
         let city: geoip2::City = reader.lookup(ip).unwrap();
         let country: geoip2::Country = reader.lookup(ip).unwrap();
