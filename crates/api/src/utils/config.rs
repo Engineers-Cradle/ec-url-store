@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub redis_url: String,
     pub num_workers: usize,
     pub log_level: String,
+    pub grpc_server_address: String,
     #[confik(from = DbConfig)]
     pub pg: deadpool_postgres::Config,
 }
