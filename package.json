@@ -1,0 +1,22 @@
+{
+  "name": "ec-url-store",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "turbo build",
+    "build:release": "turbo build:release",
+    "dev": "turbo dev",
+    "start": "turbo start"
+  },
+  "keywords": [
+    "ec-url-store"
+  ],
+  "author": {
+    "email": "hi@b68.dev",
+    "name": "Jyotirmoy Bandyopadhayaya"
+  },
+  "license": "ISC",
+  "packageManager": "pnpm@9.8.0",
+  "devDependencies": {
+    "turbo": "^2.1.3"
+  }
+}
