@@ -1,23 +1,23 @@
-# URL Store
+# EC URL Store 🔗
 
 Welcome to URL Store project! This repository is designed to help you manage and store URLs efficiently.
 
 ## Table of Contents
 
-- [URL Store](#url-store)
+- [EC URL Store 🔗](#ec-url-store-)
   - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Features](#features)
-  - [Installation](#installation)
-  - [Usage](#usage)
-  - [Contributing](#contributing)
-  - [License](#license)
+  - [Introduction 🙌](#introduction-)
+  - [Features 🚀](#features-)
+  - [Installation 🛠️](#installation-️)
+  - [Usage 📝](#usage-)
+  - [Contributing 🤝](#contributing-)
+  - [License 📝](#license-)
 
-## Introduction
+## Introduction 🙌
 
 The URL Store project is a simple and lightweight tool that allows you to store and manage URLs. It provides an easy-to-use interface for adding new URLs and retrieving stored URLs. The project is open-source and free to use, and it is actively maintained and updated by the Engineers Cradle team.
 
-## Features
+## Features 🚀
 
 - Add new URLs
 - Retrieve stored URLs
@@ -27,21 +27,25 @@ The URL Store project is a simple and lightweight tool that allows you to store 
 - Actively maintained and updated
 - gRPC-based API for IP tracking
 - RESTful API for URL management
+- Analytics for tracking URL usage
 
-## Installation
+## Installation 🛠️
 
 To install the project, clone the repository and install the necessary dependencies:
 
 ```bash
-git clone https://github.com/yourusername/ec-url-store.git
+git clone https://github.com/Engineers-Cradle/ec-url-store.git
 cd ec-url-store
 pnpm install
 pnpm build:release
 ```
 
-## Usage
+## Usage 📝
 
 To start using the URL store, run the following command:
+
+- Check `crates/api` and `crates/geo-ip` packages and fill in the `.env` files with the necessary values (check the `.env.example` files for reference).
+- Run the following command to start the URL store:
 
 ```bash
 pnpm start
@@ -49,7 +53,7 @@ pnpm start
 
 You can then interact with the URL store through the provided interface.
 
-## Contributing
+## Contributing 🤝
 
 We welcome contributions to the Engineers Cradle URL Store project. To contribute, please follow these steps:
 
@@ -59,6 +63,6 @@ We welcome contributions to the Engineers Cradle URL Store project. To contribut
 4. Push to the branch (`git push origin feature-branch`)
 5. Create a Pull Request
 
-## License
+## License 📝
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
