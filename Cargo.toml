@@ -1,5 +1,5 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/api", "crates/seed-gen"
+    "crates/api", "crates/geo-ip", "crates/seed-gen"
 ]
