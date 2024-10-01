@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package grpc_geoip;
+
+message GeoIPRequest {
+  string ip = 1;
+}
+
+message GeoIPResponse {
+  string country = 1;
+  string city = 2;
+}
+
+service GeoIp {
+  rpc GetInfo(GeoIPRequest) returns (GeoIPResponse);
+}
