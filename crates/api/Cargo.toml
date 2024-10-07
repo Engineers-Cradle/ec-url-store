@@ -26,7 +26,7 @@ tracing = "0.1"
 jwtk = "0.3.0"
 reqwest = { version = "0.12", features = ["json"] }
 seed-gen = { path = "../seed-gen" }
-arrow = "53.0.0"
+arrow = "53.1.0"
 grpc_proto = { path = "../grpc_proto" }
 tonic = "0.12.3"
 
