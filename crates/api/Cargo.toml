@@ -11,7 +11,7 @@ tokio = { version = "1.40.0", features = ["full"] }
 deadpool-postgres = { version = "0.14.0", features = ["serde"] }
 derive_more = { version = "1", features = ["full"] }
 dotenvy = "0.15.7"
-serde = { version = "1.0.210", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.128"
 tokio-pg-mapper = "0.2.0"
 tokio-pg-mapper-derive = "0.2.0"
